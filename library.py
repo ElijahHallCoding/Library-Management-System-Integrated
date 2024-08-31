@@ -1,123 +1,69 @@
-from book import Book
-from user import User
-from author import Author
+import mysql.connector
+from connect_mysql import connect_database
 
 class Library:
     def __init__(self):
-        self.books = {}
-        self.users = {}
-        self.authors = {}
+        self.conn = connect_database()
+        self.cursor = self.conn.cursor()
 
-    # Book operations
-    def add_book(self, title, author, genre, publication_date):
-        title_key = title.lower()
-        if title_key in self.books:
-            print("Error: Book already exists.")
-        else:
-            new_book = Book(title, author, genre, publication_date)
-            self.books[title_key] = new_book
+    # Method to add a book to the library
+    def add_book(self, title, author, genre, publication_date, isbn):
+        try:
+            # Check if the author exists
+            self.cursor.execute("SELECT id FROM authors WHERE name = %s", (author,))
+            author_id = self.cursor.fetchone()
+            if not author_id:
+                print(f"Error: Author '{author}' not found.")
+                return
+
+            # Insert the book into the database
+            self.cursor.execute(
+                "INSERT INTO books (title, author_id, genre, publication_date, isbn) VALUES (%s, %s, %s, %s, %s)",
+                (title, author_id[0], genre, publication_date, isbn)
+            )
+            self.conn.commit()
             print(f"Book '{title}' added successfully.")
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
 
+    # Method to borrow a book from the library
     def borrow_book(self, title, user_id):
-        title_key = title.lower()
-        if user_id not in self.users:
-            raise ValueError("Error: Invalid user ID.")
         try:
-            if title_key in self.books:
-                book = self.books[title_key]
-                user = self.users[user_id]
-                if book.borrow_book():
-                    user.borrow_book(title)
-                    print(f"Book '{title}' borrowed by {user.get_name()}.")
-                else:
-                    print(f"Error: Book '{title}' is currently unavailable.")
-            else:
-                print("Error: Invalid book title.")
-        except KeyError:
-            print("Error: Book or user not found.")
+            # Check if the book exists and is available
+            self.cursor.execute("SELECT id, availability FROM books WHERE title = %s", (title,))
+            book = self.cursor.fetchone()
+            if not book:
+                print(f"Error: Book '{title}' not found.")
+                return
+            if not book[1]:
+                print(f"Error: Book '{title}' is currently unavailable.")
+                return
 
-    def return_book(self, title, user_id):
-        title_key = title.lower()
-        if user_id not in self.users:
-            raise ValueError("Error: Invalid user ID.")
-        try:
-            if title_key in self.books:
-                book = self.books[title_key]
-                user = self.users[user_id]
-                if title in user.get_borrowed_books():
-                    book.return_book()
-                    user.return_book(title)
-                    print(f"Book '{title}' returned by {user.get_name()}.")
-                else:
-                    print(f"Error: {user.get_name()} has not borrowed '{title}'.")
-            else:
-                print("Error: Invalid book title.")
-        except KeyError:
-            print("Error: Book or user not found.")
+            # Check if the user exists
+            self.cursor.execute("SELECT id FROM users WHERE library_id = %s", (user_id,))
+            user = self.cursor.fetchone()
+            if not user:
+                print(f"Error: User with ID '{user_id}' not found.")
+                return
 
-    def search_book(self, title):
-        title_key = title.lower()
-        try:
-            if title_key in self.books:
-                self.books[title_key].display_details()
-            else:
-                print("Error: Book not found.")
-        except KeyError:
-            print("Error: Book not found.")
+            # Insert into borrowed_books table
+            self.cursor.execute(
+                "INSERT INTO borrowed_books (user_id, book_id, borrow_date) VALUES (%s, %s, CURDATE())",
+                (user[0], book[0])
+            )
+            self.conn.commit()
 
-    def display_all_books(self):
-        if not self.books:
-            print("No books available.")
-        else:
-            for book in self.books.values():
-                book.display_details()
+            # Mark the book as unavailable
+            self.cursor.execute("UPDATE books SET availability = 0 WHERE id = %s", (book[0],))
+            self.conn.commit()
 
-    # User operations
-    def add_user(self, name, library_id):
-        if library_id in self.users:
-            print("Error: User already exists.")
-        else:
-            new_user = User(name, library_id)
-            self.users[library_id] = new_user
-            print(f"User '{name}' added successfully.")
+            print(f"Book '{title}' borrowed by User ID '{user_id}'.")
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
 
-    def view_user_details(self, user_id):
-        try:
-            if user_id in self.users:
-                self.users[user_id].display_details()
-            else:
-                print("Error: User not found.")
-        except KeyError:
-            print("Error: User not found.")
-
-    def display_all_users(self):
-        if not self.users:
-            print("No users found.")
-        else:
-            for user in self.users.values():
-                user.display_details()
-
-    # Author operations
-    def add_author(self, name, biography):
-        if name in self.authors:
-            print("Error: Author already exists.")
-        else:
-            new_author = Author(name, biography)
-            self.authors[name] = new_author
-            print(f"Author '{name}' added successfully.")
-
-    def view_author_details(self, name):
-        try:
-            if name in self.authors:
-                self.authors[name].display_details()
-            else:
-                print("Error: Author not found.")
-        except KeyError:
-            print("Error: Author not found.")
-
-    def display_all_authors(self):
-        if not self.authors:
-            print("No authors found.")
-        else:
-            for author in self.authors.values():
-                author.display_details()
+    # Method to close the database connection
+    def close_connection(self):
+        if self.conn.is_connected():
+            self.cursor.close()
+            self.conn.close()
+            print("MySQL connection closed.")

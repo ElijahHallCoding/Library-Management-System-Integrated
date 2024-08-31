@@ -1,15 +1,9 @@
-from library import Library
+from connect_mysql import connect_database
+from book import Book
+from user import User
+from author import Author
 
-def main_menu():
-    print("\nWelcome to the Library Management System!")
-    print("Main Menu:")
-    print("1. Book Operations")
-    print("2. User Operations")
-    print("3. Author Operations")
-    print("4. Quit")
-    return input("Please choose an option (1-4): ")
-
-def book_menu(library):
+def book_menu(connection):
     print("\nBook Operations:")
     print("1. Add a new book")
     print("2. Borrow a book")
@@ -21,29 +15,28 @@ def book_menu(library):
     try:
         if choice == "1":
             title = input("Enter book title: ")
-            author = input("Enter book author: ")
+            author_id = input("Enter author ID: ")
             genre = input("Enter book genre: ")
-            publication_date = input("Enter publication date: ")
-            library.add_book(title, author, genre, publication_date)
+            publication_date = input("Enter publication date (YYYY-MM-DD): ")
+            isbn = input("Enter ISBN: ")
+            Book.add_book_to_db(connection, title, author_id, genre, publication_date, isbn)
         elif choice == "2":
-            title = input("Enter book title to borrow: ")
-            user_id = input("Enter user library ID: ")
-            library.borrow_book(title, user_id)
+            book_id = input("Enter book ID to borrow: ")
+            Book.borrow_book_from_db(connection, book_id)
         elif choice == "3":
-            title = input("Enter book title to return: ")
-            user_id = input("Enter user library ID: ")
-            library.return_book(title, user_id)
+            book_id = input("Enter book ID to return: ")
+            Book.return_book_to_db(connection, book_id)
         elif choice == "4":
             title = input("Enter book title to search: ")
-            library.search_book(title)
+            search_book_in_db(connection, title)
         elif choice == "5":
-            library.display_all_books()
+            display_all_books_in_db(connection)
         else:
             print("Invalid choice, please select a valid option.")
     except Exception as e:
         print(f"An error occurred: {e}")
 
-def user_menu(library):
+def user_menu(connection):
     print("\nUser Operations:")
     print("1. Add a new user")
     print("2. View user details")
@@ -54,18 +47,18 @@ def user_menu(library):
         if choice == "1":
             name = input("Enter user name: ")
             library_id = input("Enter library ID: ")
-            library.add_user(name, library_id)
+            User.add_user_to_db(connection, name, library_id)
         elif choice == "2":
             user_id = input("Enter user library ID to view details: ")
-            library.view_user_details(user_id)
+            User.view_user_details(connection, user_id)
         elif choice == "3":
-            library.display_all_users()
+            User.display_all_users(connection)
         else:
             print("Invalid choice, please select a valid option.")
     except Exception as e:
         print(f"An error occurred: {e}")
 
-def author_menu(library):
+def author_menu(connection):
     print("\nAuthor Operations:")
     print("1. Add a new author")
     print("2. View author details")
@@ -76,34 +69,80 @@ def author_menu(library):
         if choice == "1":
             name = input("Enter author name: ")
             biography = input("Enter author biography: ")
-            library.add_author(name, biography)
+            Author.add_author_to_db(connection, name, biography)
         elif choice == "2":
             name = input("Enter author name to view details: ")
-            library.view_author_details(name)
+            Author.view_author_details(connection, name)
         elif choice == "3":
-            library.display_all_authors()
+            Author.display_all_authors(connection)
         else:
             print("Invalid choice, please select a valid option.")
     except Exception as e:
         print(f"An error occurred: {e}")
 
-def main():
-    library = Library()
+# Additional functions to handle searching and displaying books
+def search_book_in_db(connection, title):
+    cursor = connection.cursor()
+    try:
+        query = "SELECT * FROM books WHERE title = %s"
+        cursor.execute(query, (title,))
+        book = cursor.fetchone()
 
-    while True:
-        choice = main_menu()
-
-        if choice == "1":
-            book_menu(library)
-        elif choice == "2":
-            user_menu(library)
-        elif choice == "3":
-            author_menu(library)
-        elif choice == "4":
-            print("Goodbye!")
-            break
+        if book:
+            print(f"Book Found: ID: {book[0]}, Title: {book[1]}, Author ID: {book[2]}, Genre: {book[3]}, "
+                  f"Publication Date: {book[4]}, ISBN: {book[5]}, Availability: {'Available' if book[6] else 'Unavailable'}")
         else:
-            print("Invalid choice, please select a valid option.")
+            print("Book not found.")
+    except Error as e:
+        print(f"Failed to search book: {e}")
+    finally:
+        cursor.close()
+
+def display_all_books_in_db(connection):
+    cursor = connection.cursor()
+    try:
+        query = "SELECT * FROM books"
+        cursor.execute(query)
+        books = cursor.fetchall()
+
+        if books:
+            print("Books in Library:")
+            for book in books:
+                print(f"ID: {book[0]}, Title: {book[1]}, Author ID: {book[2]}, Genre: {book[3]}, "
+                      f"Publication Date: {book[4]}, ISBN: {book[5]}, Availability: {'Available' if book[6] else 'Unavailable'}")
+        else:
+            print("No books available.")
+    except Error as e:
+        print(f"Failed to display books: {e}")
+    finally:
+        cursor.close()
+
+# Main function to run the program
+def main():
+    connection = connect_database()
+
+    if connection:
+        while True:
+            print("\nMain Menu:")
+            print("1. Book Operations")
+            print("2. User Operations")
+            print("3. Author Operations")
+            print("4. Quit")
+            choice = input("Please choose an option (1-4): ")
+
+            if choice == "1":
+                book_menu(connection)
+            elif choice == "2":
+                user_menu(connection)
+            elif choice == "3":
+                author_menu(connection)
+            elif choice == "4":
+                print("Goodbye!")
+                break
+            else:
+                print("Invalid choice, please select a valid option.")
+    else:
+        print("Failed to connect to the database.")
 
 if __name__ == "__main__":
-    main() 
+    main()

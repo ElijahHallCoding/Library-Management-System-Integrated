@@ -1,12 +1,10 @@
-# Establishing the Connection
-
 import mysql.connector
 from mysql.connector import Error
 
 def connect_database():
-    """ COnnect to the MySQL database and return the connection object """
+    """Connect to the MySQL database and return the connection object"""
 
-    #Database connection parameters 
+    # Database connection parameters 
     db_name = "e_commerce_db"
     user = "root"
     password = "Daniel10@@@@"
@@ -14,13 +12,13 @@ def connect_database():
 
     try:
         conn = mysql.connector.connect(
-            database = db_name,
-            user = user,
-            password = password,
-            host = host
+            database=db_name,
+            user=user,
+            password=password,
+            host=host
         )
 
-        # Check if the connection si sucessful
+        # Check if the connection is successful
         print("Connected to MySQL database successfully")
         return conn
     
@@ -28,4 +26,3 @@ def connect_database():
         # Handling any connection errors
         print(f"Error: {e}")
         return None
-

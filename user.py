@@ -1,28 +1,58 @@
+from mysql.connector import Error
+
 class User:
     def __init__(self, name, library_id):
-        self.__name = name
-        self.__library_id = library_id
-        self.__borrowed_books = []
+        self.name = name
+        self.library_id = library_id
 
-    # Getters
-    def get_name(self):
-        return self.__name
+    # Static method to add a user to the database
+    @staticmethod
+    def add_user_to_db(connection, name, library_id):
+        cursor = connection.cursor()
+        try:
+            query = "INSERT INTO users (name, library_id) VALUES (%s, %s)"
+            cursor.execute(query, (name, library_id))
+            connection.commit()
+            print(f"User '{name}' added successfully.")
+        except Error as e:
+            print(f"Failed to add user: {e}")
+        finally:
+            cursor.close()
 
-    def get_library_id(self):
-        return self.__library_id
+    # Static method to view user details
+    @staticmethod
+    def view_user_details(connection, library_id):
+        cursor = connection.cursor()
+        try:
+            query = "SELECT * FROM users WHERE library_id = %s"
+            cursor.execute(query, (library_id,))
+            user = cursor.fetchone()
 
-    def get_borrowed_books(self):
-        return self.__borrowed_books
+            if user:
+                print(f"User ID: {user[0]}, Name: {user[1]}, Library ID: {user[2]}")
+            else:
+                print("User not found.")
+        except Error as e:
+            print(f"Failed to retrieve user: {e}")
+        finally:
+            cursor.close()
 
-    # Add and remove borrowed books
-    def borrow_book(self, book_title):
-        self.__borrowed_books.append(book_title)
+    # Static method to display all users
+    @staticmethod
+    def display_all_users(connection):
+        cursor = connection.cursor()
+        try:
+            query = "SELECT * FROM users"
+            cursor.execute(query)
+            users = cursor.fetchall()
 
-    def return_book(self, book_title):
-        if book_title in self.__borrowed_books:
-            self.__borrowed_books.remove(book_title)
-
-    # Display user details
-    def display_details(self):
-        print(f"Name: {self.__name}, Library ID: {self.__library_id}")
-        print("Borrowed Books:", ", ".join(self.__borrowed_books) if self.__borrowed_books else "None")
+            if users:
+                print("Users in the library system:")
+                for user in users:
+                    print(f"User ID: {user[0]}, Name: {user[1]}, Library ID: {user[2]}")
+            else:
+                print("No users found.")
+        except Error as e:
+            print(f"Failed to retrieve users: {e}")
+        finally:
+            cursor.close()

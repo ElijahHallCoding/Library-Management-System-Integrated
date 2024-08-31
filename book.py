@@ -1,39 +1,75 @@
+from mysql.connector import Error
+
 class Book:
-    def __init__(self, title, author, genre, publication_date):
-        self.__title = title
-        self.__author = author
-        self.__genre = genre
-        self.__publication_date = publication_date
-        self.__is_available = True
+    def __init__(self, title, author_id, genre, publication_date):
+        self.title = title
+        self.author_id = author_id
+        self.genre = genre
+        self.publication_date = publication_date
+        self.is_available = True
 
-    # Getters
-    def get_title(self):
-        return self.__title
+    # Static method to add a book to the database
+    @staticmethod
+    def add_book_to_db(connection, title, author_id, genre, publication_date, isbn):
+        cursor = connection.cursor()
+        try:
+            query = """
+            INSERT INTO books (title, author_id, genre, publication_date, isbn, availability) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (title, author_id, genre, publication_date, isbn, 1))  # 1 indicates available
+            connection.commit()
+            print(f"Book '{title}' added successfully.")
+        except Error as e:
+            print(f"Failed to add book: {e}")
+        finally:
+            cursor.close()
 
-    def get_author(self):
-        return self.__author
+    # Static method to borrow a book from the database
+    @staticmethod
+    def borrow_book_from_db(connection, book_id):
+        cursor = connection.cursor()
+        try:
+            query = "SELECT availability FROM books WHERE id = %s"
+            cursor.execute(query, (book_id,))
+            result = cursor.fetchone()
 
-    def get_genre(self):
-        return self.__genre
+            if result is None:
+                print(f"Book with ID {book_id} not found.")
+                return
 
-    def get_publication_date(self):
-        return self.__publication_date
+            availability = result[0]
 
-    def is_available(self):
-        return self.__is_available
+            if availability:
+                update_query = "UPDATE books SET availability = 0 WHERE id = %s"
+                cursor.execute(update_query, (book_id,))
+                connection.commit()
+                print("Book borrowed successfully.")
+            else:
+                print("Book is not available.")
+        except Error as e:
+            print(f"Failed to borrow book: {e}")
+        finally:
+            cursor.close()
 
-    # Setters
-    def borrow_book(self):
-        if self.__is_available:
-            self.__is_available = False
-            return True
-        return False
+    # Static method to return a book to the database
+    @staticmethod
+    def return_book_to_db(connection, book_id):
+        cursor = connection.cursor()
+        try:
+            query = "SELECT availability FROM books WHERE id = %s"
+            cursor.execute(query, (book_id,))
+            result = cursor.fetchone()
 
-    def return_book(self):
-        self.__is_available = True
+            if result is None:
+                print(f"Book with ID {book_id} not found.")
+                return
 
-    # Display book details
-    def display_details(self):
-        availability = "Available" if self.__is_available else "Unavailable"
-        print(f"Title: {self.__title}, Author: {self.__author}, Genre: {self.__genre}, "
-              f"Publication Date: {self.__publication_date}, Status: {availability}")
+            update_query = "UPDATE books SET availability = 1 WHERE id = %s"
+            cursor.execute(update_query, (book_id,))
+            connection.commit()
+            print("Book returned successfully.")
+        except Error as e:
+            print(f"Failed to return book: {e}")
+        finally:
+            cursor.close()
